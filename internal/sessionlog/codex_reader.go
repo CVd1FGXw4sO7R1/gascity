@@ -141,6 +141,30 @@ func ReadCodexFile(path string, _ int) (*Session, error) {
 				lastUUID = entry.UUID
 				messages = append(messages, entry)
 				idx++
+
+			case "error", "stream_error", "turn_aborted":
+				entry := &Entry{
+					UUID:      fmt.Sprintf("codex-event-%d", idx),
+					Type:      "error",
+					Timestamp: ts,
+					Raw:       json.RawMessage(e.line),
+				}
+				entry.ParentUUID = lastUUID
+				lastUUID = entry.UUID
+				messages = append(messages, entry)
+				idx++
+
+			default:
+				entry := &Entry{
+					UUID:      fmt.Sprintf("codex-event-%d", idx),
+					Type:      "event_msg",
+					Timestamp: ts,
+					Raw:       json.RawMessage(e.line),
+				}
+				entry.ParentUUID = lastUUID
+				lastUUID = entry.UUID
+				messages = append(messages, entry)
+				idx++
 			}
 		}
 	}

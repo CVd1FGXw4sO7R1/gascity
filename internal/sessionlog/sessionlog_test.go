@@ -1446,6 +1446,78 @@ func TestReadCodexFileInteractionLifecycleUsesDistinctEntryIDs(t *testing.T) {
 	}
 }
 
+func TestReadCodexFileErrorEventMsgTypes(t *testing.T) {
+	errorLine := `{"timestamp":"2026-05-03T00:05:41.798Z","type":"event_msg","payload":{"type":"error","message":"You've hit your usage limit.","codex_error_info":"usage_limit_exceeded"}}`
+	streamErrorLine := `{"timestamp":"2026-05-03T00:06:00.000Z","type":"event_msg","payload":{"type":"stream_error","message":"stream interrupted"}}`
+	turnAbortedLine := `{"timestamp":"2026-05-03T00:07:00.000Z","type":"event_msg","payload":{"type":"turn_aborted","message":"turn was aborted"}}`
+	userMsgLine := `{"timestamp":"2026-05-03T00:04:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"hello"}}`
+	responseLine := `{"timestamp":"2026-05-03T00:04:30.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"text":"hi"}]}}`
+
+	path := writeJSONL(t, userMsgLine, responseLine, errorLine, streamErrorLine, turnAbortedLine)
+
+	sess, err := ReadCodexFile(path, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Expect: user_message (event_msg, but no response_item user → included),
+	// response_item/message, error, stream_error, turn_aborted = 5 entries.
+	if got := len(sess.Messages); got != 5 {
+		t.Fatalf("Messages = %d, want 5", got)
+	}
+
+	// Verify the three error-category entries.
+	for i, want := range []struct {
+		idx     int
+		entType string
+		rawLine string
+	}{
+		{2, "error", errorLine},
+		{3, "error", streamErrorLine},
+		{4, "error", turnAbortedLine},
+	} {
+		msg := sess.Messages[want.idx]
+		if msg.Type != want.entType {
+			t.Errorf("[%d] Type = %q, want %q", i, msg.Type, want.entType)
+		}
+		if string(msg.Raw) != want.rawLine {
+			t.Errorf("[%d] Raw mismatch:\n got: %s\nwant: %s", i, msg.Raw, want.rawLine)
+		}
+		if msg.UUID != fmt.Sprintf("codex-event-%d", want.idx) {
+			t.Errorf("[%d] UUID = %q, want codex-event-%d", i, msg.UUID, want.idx)
+		}
+	}
+
+	// Verify parent chain is linked.
+	for i := 1; i < len(sess.Messages); i++ {
+		if sess.Messages[i].ParentUUID != sess.Messages[i-1].UUID {
+			t.Errorf("Messages[%d].ParentUUID = %q, want %q", i, sess.Messages[i].ParentUUID, sess.Messages[i-1].UUID)
+		}
+	}
+}
+
+func TestReadCodexFileUnknownEventMsgForwarded(t *testing.T) {
+	unknownLine := `{"timestamp":"2026-05-03T00:08:00.000Z","type":"event_msg","payload":{"type":"new_future_type","data":"something"}}`
+
+	path := writeJSONL(t, unknownLine)
+
+	sess, err := ReadCodexFile(path, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := len(sess.Messages); got != 1 {
+		t.Fatalf("Messages = %d, want 1 (unknown event_msg should be forwarded)", got)
+	}
+	msg := sess.Messages[0]
+	if msg.Type != "event_msg" {
+		t.Fatalf("Type = %q, want event_msg", msg.Type)
+	}
+	if string(msg.Raw) != unknownLine {
+		t.Fatalf("Raw mismatch:\n got: %s\nwant: %s", msg.Raw, unknownLine)
+	}
+}
+
 func TestFindCodexSessionFileIn(t *testing.T) {
 	sessDir := t.TempDir()
 	workDir := "/data/projects/myproject"
