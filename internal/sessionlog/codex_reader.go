@@ -201,7 +201,8 @@ func convertResponseItem(payload json.RawMessage, rawLine string, idx int, ts ti
 			Raw: json.RawMessage(rawLine),
 		}
 
-	case "function_call":
+	case "function_call", "custom_tool_call":
+		callID := firstNonEmpty(ri.CallID, ri.ID)
 		return &Entry{
 			UUID:      uuid,
 			Type:      "assistant",
@@ -210,19 +211,20 @@ func convertResponseItem(payload json.RawMessage, rawLine string, idx int, ts ti
 				Role: "assistant",
 				Content: mustMarshal([]ContentBlock{{
 					Type: "tool_use",
-					ID:   ri.CallID,
+					ID:   callID,
 					Name: ri.Name,
 				}}),
 			}),
 			Raw: json.RawMessage(rawLine),
 		}
 
-	case "function_call_output":
+	case "function_call_output", "custom_tool_call_output":
+		callID := firstNonEmpty(ri.CallID, ri.ID)
 		return &Entry{
 			UUID:      uuid,
 			Type:      "tool_result",
 			Timestamp: ts,
-			ToolUseID: ri.CallID,
+			ToolUseID: callID,
 			Raw:       json.RawMessage(rawLine),
 		}
 
@@ -293,7 +295,7 @@ type codexEventMsg struct {
 }
 
 type codexResponseItem struct {
-	Type      string             `json:"type"` // message, reasoning, function_call, function_call_output, interaction
+	Type      string             `json:"type"` // message, reasoning, function_call, custom_tool_call, function_call_output, custom_tool_call_output, interaction
 	Role      string             `json:"role,omitempty"`
 	Content   []codexTextContent `json:"content,omitempty"`
 	Summary   []codexTextContent `json:"summary,omitempty"`
