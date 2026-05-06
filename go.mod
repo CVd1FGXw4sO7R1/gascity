@@ -10,5 +10,7 @@ require (
 
 require (
 	go.uber.org/multierr v1.11.0 // indirect
+	// note: go.uber.org/atomic is no longer needed as of zap v1.27.0 (uses sync/atomic internally)
+	// keeping here for transitive compatibility until upstream removes it
 	go.uber.org/atomic v1.11.0 // indirect
 )
