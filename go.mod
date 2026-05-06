@@ -14,3 +14,6 @@ require (
 	// keeping here for transitive compatibility until upstream removes it
 	go.uber.org/atomic v1.11.0 // indirect
 )
+
+// forked from gastownhall/gascity for personal learning/experimentation
+// upstream: https://github.com/gastownhall/gascity
