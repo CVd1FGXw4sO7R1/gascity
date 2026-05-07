@@ -25,8 +25,9 @@ var (
 )
 
 func main() {
+	// Use DEBUG level locally to get more verbose output while experimenting.
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelDebug,
 	}))
 	slog.SetDefault(logger)
 
