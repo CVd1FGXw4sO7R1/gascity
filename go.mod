@@ -17,3 +17,4 @@ require (
 
 // forked from gastownhall/gascity for personal learning/experimentation
 // upstream: https://github.com/gastownhall/gascity
+// TODO: periodically sync with upstream via: git fetch upstream && git merge upstream/main
